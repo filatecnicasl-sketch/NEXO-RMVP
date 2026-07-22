@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Hide platform branding badge (allowed per support confirmation) */
+#emergent-badge,
+a#emergent-badge,
+a[href*="emergent-badge"],
+a[href*="utm_source=emergent-badge"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+    --hemsa-green: #2ECC8B;
+    --hemsa-green-hover: #229C6A;
+    --hemsa-green-soft: #E7F8F0;
+    --hemsa-text: #3F3F46;
+    --hemsa-muted: #7A7A7A;
+    --hemsa-bg: #FFFFFF;
+    --hemsa-surface: #F4F4F5;
+    --hemsa-border: #E4E4E7;
+    --hemsa-error: #EF4444;
+    --hemsa-warning: #F59E0B;
+    --hemsa-info: #3B82F6;
+}
+
+body {
+    margin: 0;
+    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    color: var(--hemsa-text);
+    background: #FAFAFA;
+}
+
+h1, h2, h3, h4, h5, h6, .font-heading {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    letter-spacing: -0.01em;
+}
+
+code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+@layer base {
+    :root {
+        --background: 0 0% 100%;
+        --foreground: 240 5% 26%;
+        --card: 0 0% 100%;
+        --card-foreground: 240 5% 26%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 240 5% 26%;
+        --primary: 154 60% 49%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 240 5% 96%;
+        --secondary-foreground: 240 5% 26%;
+        --muted: 240 5% 96%;
+        --muted-foreground: 240 4% 48%;
+        --accent: 154 60% 95%;
+        --accent-foreground: 154 60% 25%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 240 6% 90%;
+        --input: 240 6% 90%;
+        --ring: 154 60% 49%;
+        --chart-1: 154 60% 49%;
+        --chart-2: 240 5% 65%;
+        --chart-3: 200 70% 50%;
+        --chart-4: 38 92% 50%;
+        --chart-5: 0 84% 60%;
+        --radius: 0.625rem;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+    body {
+        @apply bg-background text-foreground;
+    }
+    *:focus-visible {
+        outline: 2px solid var(--hemsa-green);
+        outline-offset: 2px;
+        border-radius: 4px;
+    }
+    ::selection {
+        background: var(--hemsa-green-soft);
+        color: var(--hemsa-text);
+    }
+}
+
+@layer base {
+    [data-debug-wrapper="true"] {
+        display: contents !important;
+    }
+    [data-debug-wrapper="true"] > * {
+        margin-left: inherit; margin-right: inherit; margin-top: inherit; margin-bottom: inherit;
+        padding-left: inherit; padding-right: inherit; padding-top: inherit; padding-bottom: inherit;
+        column-gap: inherit; row-gap: inherit; gap: inherit;
+        border-left-width: inherit; border-right-width: inherit; border-top-width: inherit; border-bottom-width: inherit;
+        border-left-style: inherit; border-right-style: inherit; border-top-style: inherit; border-bottom-style: inherit;
+        border-left-color: inherit; border-right-color: inherit; border-top-color: inherit; border-bottom-color: inherit;
+    }
+}
+
+/* Hemsa utilities */
+.hemsa-glass {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--hemsa-border);
+}
+
+.hemsa-grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.05;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' /%3E%3C/svg%3E");
+}
+
+.hemsa-btn-primary {
+    background: var(--hemsa-green);
+    color: #FFFFFF;
+    transition: transform 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+.hemsa-btn-primary:hover {
+    background: var(--hemsa-green-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px -8px rgba(46, 204, 139, 0.45);
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.status-pendiente { background: #FEF3C7; color: #92400E; }
+.status-recepcionada { background: #EDE9FE; color: #5B21B6; }
+.status-en_revision { background: #DBEAFE; color: #1E40AF; }
+.status-aprobada { background: #D1FAE5; color: #065F46; }
+.status-denegada { background: #FEE2E2; color: #991B1B; }
