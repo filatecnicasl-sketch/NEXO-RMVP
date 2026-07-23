@@ -21,9 +21,19 @@ except Exception:
 from deps import db, logger, now_utc, get_current_user, require_admin, require_writer, EMERGENT_LLM_KEY
 from helpers import REGISTRY_RE, generate_registry_number, get_baremo_config
 from storage_service import compute_score
+from llm_provider import extract_pdf_data
 
 
 router = APIRouter(tags=["ocr"])
+
+
+_DNI_LETRAS = 'TRWAGMYFPDXBNJZSQVHLCKE'
+
+
+def _dni_ok(documento: str) -> bool:
+    """Valida la letra de control de un DNI español (8 dígitos + letra)."""
+    m = re.match(r'^(\d{8})([A-Z])$', (documento or '').replace('-', '').replace(' ', '').upper())
+    return bool(m) and _DNI_LETRAS[int(m.group(1)) % 23] == m.group(2)
 
 
 OCR_SYSTEM_PROMPT = """Eres un asistente experto en extracción estructurada de datos de formularios oficiales de la administración española.
@@ -122,6 +132,23 @@ async def _extract_with_provider(pdf_path: str, provider: str, model: str) -> Di
     return json.loads(text)
 
 
+async def _extract_any(pdf_path: str):
+    """Cadena de extracción: primero la vía Emergent (si está instalada y con clave),
+    después los proveedores directos configurados en .env (llm_provider)."""
+    if EMERGENT_OCR_AVAILABLE and EMERGENT_LLM_KEY:
+        try:
+            data = await _extract_with_provider(pdf_path, "gemini", "gemini-3.1-pro-preview")
+            return data, "gemini-3.1-pro-preview"
+        except Exception as e:
+            logger.warning(f"Gemini OCR (Emergent) falló, probando Claude (Emergent): {e}")
+            try:
+                data = await _extract_with_provider(pdf_path, "anthropic", "claude-sonnet-4-5-20250929")
+                return data, "claude-sonnet-4-5"
+            except Exception as e2:
+                logger.warning(f"Claude OCR (Emergent) falló, probando proveedores directos: {e2}")
+    return await extract_pdf_data(pdf_path, OCR_SYSTEM_PROMPT)
+
+
 @router.post("/ocr/extract")
 async def ocr_extract(file: UploadFile = File(...), user: Dict[str, Any] = Depends(get_current_user)):
     if file.content_type not in ('application/pdf', 'application/octet-stream') and not (file.filename or '').lower().endswith('.pdf'):
@@ -134,13 +161,7 @@ async def ocr_extract(file: UploadFile = File(...), user: Dict[str, Any] = Depen
     tmp.flush()
     tmp.close()
     try:
-        try:
-            data = await _extract_with_provider(tmp.name, "gemini", "gemini-3.1-pro-preview")
-            provider_used = "gemini-3.1-pro-preview"
-        except Exception as e:
-            logger.warning(f"Gemini OCR falló, usando Claude fallback: {e}")
-            data = await _extract_with_provider(tmp.name, "anthropic", "claude-sonnet-4-5-20250929")
-            provider_used = "claude-sonnet-4-5"
+        data, provider_used = await _extract_any(tmp.name)
         return {'provider': provider_used, 'data': data}
     except Exception as e:
         logger.exception("OCR failed")
@@ -163,13 +184,7 @@ async def admin_ocr_register(file: UploadFile = File(...), user=Depends(require_
     tmp.flush()
     tmp.close()
     try:
-        try:
-            data = await _extract_with_provider(tmp.name, "gemini", "gemini-3.1-pro-preview")
-            provider_used = "gemini-3.1-pro-preview"
-        except Exception as e:
-            logger.warning(f"Gemini OCR falló, usando Claude fallback: {e}")
-            data = await _extract_with_provider(tmp.name, "anthropic", "claude-sonnet-4-5-20250929")
-            provider_used = "claude-sonnet-4-5"
+        data, provider_used = await _extract_any(tmp.name)
         email = (data.get('titular1') or {}).get('email') or f"sin-email-{uuid.uuid4().hex[:6]}@hemsa.local"
         existing_user = await db.users.find_one({'email': email}, {'_id': 0})
         if existing_user:
@@ -208,6 +223,23 @@ async def admin_ocr_register(file: UploadFile = File(...), user=Depends(require_
             'created_at': now_utc().isoformat(),
             'updated_at': now_utc().isoformat(),
         }
+        # Revisión automática: validación de DNI y campos críticos vacíos.
+        # El alta se crea igualmente, pero marcada para revisión humana.
+        avisos = []
+        for etiqueta, t in (('titular 1', doc['titular1']), ('titular 2', doc.get('titular2') or {})):
+            if not t:
+                continue
+            nd = (t.get('numero_documento') or '').strip()
+            if not nd:
+                avisos.append(f"documento {etiqueta} en blanco")
+            elif (t.get('tipo_documento') or 'DNI').upper() == 'DNI' and not _dni_ok(nd):
+                avisos.append(f"DNI {etiqueta} no supera validación ({nd})")
+        if avisos:
+            doc['revision_pendiente'] = True
+            doc['notas_internas'].append({
+                'at': now_utc().isoformat(), 'by': user['user_id'], 'by_name': user.get('name', ''),
+                'texto': 'REVISIÓN OCR: ' + '; '.join(avisos),
+            })
         score_info = compute_score(doc, await get_baremo_config())
         doc['score'] = score_info['score']
         doc['score_breakdown'] = score_info['breakdown']

@@ -19,7 +19,7 @@ if not exist "frontend\.env" (
 
 echo Instalando dependencias backend...
 cd backend
-pip install -q -r requirements.txt
+pip install -q -r requirements_local.txt
 cd ..
 
 echo Instalando dependencias frontend...
@@ -28,7 +28,7 @@ call yarn install --silent
 cd ..
 
 echo Arrancando backend en :8001...
-start "Hemsa Backend" cmd /k "cd backend && uvicorn server:app --reload --host 0.0.0.0 --port 8001"
+start "Hemsa Backend" cmd /k "cd backend && uvicorn server:app --reload --host 0.0.0.0 --port 8010"
 
 echo Arrancando frontend en :3000...
 start "Hemsa Frontend" cmd /k "cd frontend && yarn start"
