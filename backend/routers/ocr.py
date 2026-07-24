@@ -251,3 +251,73 @@ async def admin_ocr_register(file: UploadFile = File(...), user=Depends(require_
             os.unlink(tmp.name)
         except Exception:
             pass
+
+# ─── Alta OCR con datos ya revisados/editados (sin releer el PDF) ───
+from fastapi import Body
+
+
+@router.post("/admin/ocr/register-data")
+async def admin_ocr_register_data(payload: Dict[str, Any] = Body(...), user=Depends(require_admin)):
+    """Crea el alta usando los datos de la vista previa (ya editados por el operario).
+    No vuelve a llamar a la IA: la creacion es instantanea."""
+    data = payload or {}
+    provider_used = 'edicion manual'
+    email = (data.get('titular1') or {}).get('email') or f"sin-email-{uuid.uuid4().hex[:6]}@hemsa.local"
+    existing_user = await db.users.find_one({'email': email}, {'_id': 0})
+    if existing_user:
+        target_user_id = existing_user['user_id']
+        already = await db.applications.find_one({'user_id': target_user_id}, {'_id': 0})
+        if already:
+            raise HTTPException(status_code=400, detail=f"El ciudadano {email} ya tiene una solicitud (Nº {already.get('numero_registro')})")
+    else:
+        target_user_id = f"user_{uuid.uuid4().hex[:12]}"
+        t1 = data.get('titular1') or {}
+        await db.users.insert_one({
+            'user_id': target_user_id,
+            'email': email,
+            'name': f"{t1.get('nombre', '')} {t1.get('apellido1', '')}".strip() or 'Ciudadano OCR',
+            'role': 'citizen',
+            'auth_provider': 'ocr_admin',
+            'created_at': now_utc().isoformat(),
+        })
+    numero = (data.get('numero_registro_previo') or "").strip()
+    if not REGISTRY_RE.match(numero):
+        numero = await generate_registry_number()
+    app_id = f"app_{uuid.uuid4().hex[:12]}"
+    doc = {
+        'application_id': app_id,
+        'user_id': target_user_id,
+        'numero_registro': numero,
+        'status': 'pendiente',
+        'titular1': data.get('titular1') or {},
+        'titular2': data.get('titular2'),
+        'otros_miembros': data.get('otros_miembros') or [],
+        'vivienda': data.get('vivienda') or {},
+        'justificacion': data.get('justificacion') or {},
+        'declaracion': data.get('declaracion') or {},
+        'notas_internas': [{'at': now_utc().isoformat(), 'by': user['user_id'], 'by_name': user.get('name', ''), 'texto': 'Alta via OCR (datos revisados y confirmados manualmente)'}],
+        'historial': [{'at': now_utc().isoformat(), 'event': 'creada_por_ocr', 'by': user['user_id'], 'provider': provider_used}],
+        'created_at': now_utc().isoformat(),
+        'updated_at': now_utc().isoformat(),
+    }
+    avisos = []
+    for etiqueta, t in (('titular 1', doc['titular1']), ('titular 2', doc.get('titular2') or {})):
+        if not t:
+            continue
+        nd = (t.get('numero_documento') or '').strip()
+        if not nd:
+            avisos.append(f"documento {etiqueta} en blanco")
+        elif (t.get('tipo_documento') or 'DNI').upper() == 'DNI' and not _dni_ok(nd):
+            avisos.append(f"DNI {etiqueta} no supera validación ({nd})")
+    if avisos:
+        doc['revision_pendiente'] = True
+        doc['notas_internas'].append({
+            'at': now_utc().isoformat(), 'by': user['user_id'], 'by_name': user.get('name', ''),
+            'texto': 'REVISIÓN OCR: ' + '; '.join(avisos),
+        })
+    score_info = compute_score(doc, await get_baremo_config())
+    doc['score'] = score_info['score']
+    doc['score_breakdown'] = score_info['breakdown']
+    await db.applications.insert_one(doc)
+    doc.pop('_id', None)
+    return {'application': doc, 'provider': provider_used}

@@ -40,38 +40,6 @@ async def admin_gdpr_purge_now(user=Depends(require_gerente)):
     return {'ok': True, **summary}
 
 
-@api_router.get("/admin/download-source")
-async def admin_download_source(user=Depends(require_gerente)):
-    """Download the full source code of the project as a ZIP.
-    Available to Gerente-level admins. Regenerated on demand to always be fresh."""
-    from fastapi.responses import FileResponse
-    import subprocess
-    import os as _os
-    zip_path = "/app/exports/hemsa-codigo-fuente.zip"
-    exports_dir = "/app/exports"
-    _os.makedirs(exports_dir, exist_ok=True)
-    # Always regenerate so the user gets the latest snapshot
-    subprocess.run(
-        [
-            "zip", "-r", "-q", zip_path,
-            "README.md", "SETUP_LOCAL.md", "start_local.sh", "start_local.bat",
-            "backend", "frontend", "memory",
-            "-x",
-            "*/node_modules/*", "*/__pycache__/*", "*/.git/*", "*/.pytest_cache/*",
-            "*/build/*", "*/dist/*", "*.pyc", "*/.cache/*",
-            "frontend/yarn.lock", "frontend/package-lock.json",
-            "*/.next/*", "*/coverage/*",
-            "backend/.env", "frontend/.env",
-        ],
-        cwd="/app", check=False,
-    )
-    return FileResponse(
-        zip_path,
-        media_type="application/zip",
-        filename="hemsa-codigo-fuente.zip",
-    )
-
-
 # ---------- Startup: seed admin & indexes ----------
 @app.on_event("startup")
 async def seed_admin():
@@ -146,7 +114,10 @@ app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=os.environ.get(
+        'CORS_ORIGINS',
+        'http://localhost:3000,http://localhost:3001,http://localhost:3002'
+    ).split(','),
     allow_methods=["*"],
     allow_headers=["*"],
 )

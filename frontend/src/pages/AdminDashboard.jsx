@@ -54,15 +54,7 @@ export default function AdminDashboard() {
             <Button onClick={() => downloadFile("/admin/export/xlsx", "solicitudes_hemsa.xlsx")} variant="outline" data-testid={ADMIN.exportXlsxBtn} className="rounded-full">
               <FileSpreadsheet className="h-4 w-4 mr-1" /> Exportar Excel
             </Button>
-            <Button
-              onClick={() => downloadFile("/admin/download-source", "hemsa-codigo-fuente.zip")}
-              variant="outline"
-              className="rounded-full border-[color:var(--hemsa-green)] text-[color:var(--hemsa-green-hover)] hover:bg-[color:var(--hemsa-green-soft)]"
-              data-testid="admin-download-source-btn"
-              title="Descarga el código fuente completo del programa (ZIP). Solo Gerente."
-            >
-              <Download className="h-4 w-4 mr-1" /> Descargar código fuente (ZIP)
-            </Button>
+          
           </div>
         </div>
 

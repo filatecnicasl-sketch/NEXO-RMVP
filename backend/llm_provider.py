@@ -7,11 +7,13 @@ Orden de intento (según las claves configuradas en .env):
                           convirtiendo las páginas del PDF a imágenes (PyMuPDF)
 
 Todos devuelven (datos_dict, nombre_proveedor) o lanzan excepción.
+Incluye reintento automático ante errores transitorios (503/429/saturación).
 """
 import os
 import re
 import json
 import base64
+import asyncio
 from typing import Dict, Any, Tuple
 
 import httpx
@@ -20,6 +22,18 @@ USER_INSTRUCTION = (
     "Extrae los datos del PDF y devuélvelos en JSON estricto siguiendo "
     "el esquema especificado."
 )
+
+# Reintentos ante saturación puntual del proveedor (503 "high demand", 429...)
+INTENTOS_MAX = 3
+ESPERA_BASE_SEG = 6
+
+
+def _es_transitorio(err: Exception) -> bool:
+    msg = str(err).lower()
+    return any(p in msg for p in (
+        '503', '429', 'unavailable', 'overload', 'high demand',
+        'temporar', 'timeout', 'timed out', 'deadline', 'rate limit',
+    ))
 
 
 def _parse_json(text: str) -> Dict[str, Any]:
@@ -38,7 +52,7 @@ async def _extract_gemini(pdf_path: str, system_prompt: str) -> Tuple[Dict[str, 
     from google import genai
     from google.genai import types
 
-    model = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash')
+    model = os.environ.get('GEMINI_MODEL', 'gemini-3-flash-preview')
     client = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
     with open(pdf_path, 'rb') as f:
         pdf_bytes = f.read()
@@ -126,7 +140,8 @@ async def _extract_openai_compatible(pdf_path: str, system_prompt: str) -> Tuple
 
 # ─── Punto de entrada ────────────────────────────────────────────────
 async def extract_pdf_data(pdf_path: str, system_prompt: str) -> Tuple[Dict[str, Any], str]:
-    """Prueba los proveedores configurados en orden. Lanza la última excepción si todos fallan."""
+    """Prueba los proveedores configurados en orden, con reintento automático
+    ante errores transitorios (503/429/saturación). Lanza la última excepción si todos fallan."""
     errores = []
     cadena = []
     if os.environ.get('GEMINI_API_KEY'):
@@ -143,8 +158,14 @@ async def extract_pdf_data(pdf_path: str, system_prompt: str) -> Tuple[Dict[str,
         )
 
     for nombre, fn in cadena:
-        try:
-            return await fn(pdf_path, system_prompt)
-        except Exception as e:  # probamos con el siguiente proveedor
-            errores.append(f'{nombre}: {str(e)[:150]}')
+        for intento in range(1, INTENTOS_MAX + 1):
+            try:
+                return await fn(pdf_path, system_prompt)
+            except Exception as e:
+                if _es_transitorio(e) and intento < INTENTOS_MAX:
+                    # Saturación puntual: esperamos y reintentamos en silencio
+                    await asyncio.sleep(ESPERA_BASE_SEG * intento)
+                    continue
+                errores.append(f'{nombre}: {str(e)[:150]}')
+                break  # error definitivo → siguiente proveedor
     raise RuntimeError('Todos los proveedores OCR fallaron → ' + ' | '.join(errores))
