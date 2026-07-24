@@ -25,6 +25,7 @@ import Informacion from "@/pages/Informacion";
 import Normativa from "@/pages/Normativa";
 import FAQ from "@/pages/FAQ";
 import Contacto from "@/pages/Contacto";
+import CalculadoraIprem from "@/pages/CalculadoraIprem";
 import CitizenLogin from "@/pages/CitizenLogin";
 import CitizenRegister from "@/pages/CitizenRegister";
 import AdminLogin from "@/pages/AdminLogin";
@@ -52,6 +53,7 @@ function AppRouter() {
       <Route path="/normativa" element={<Normativa />} />
       <Route path="/faq" element={<FAQ />} />
       <Route path="/contacto" element={<Contacto />} />
+      <Route path="/calculadora" element={<CalculadoraIprem />} />
       <Route path="/login" element={<CitizenLogin />} />
       <Route path="/registro" element={<CitizenRegister />} />
       <Route path="/admin/login" element={<AdminLogin />} />
@@ -74,6 +76,10 @@ function AppRouter() {
       } />
       <Route path="/admin/solicitudes" element={
         <ProtectedRoute role="admin"><AdminApplications /></ProtectedRoute>
+
+      } />
+      <Route path="/admin/calculadora" element={
+        <ProtectedRoute role="admin"><CalculadoraIprem variant="admin" /></ProtectedRoute>
       } />
       <Route path="/admin/solicitudes/:id" element={
         <ProtectedRoute role="admin"><AdminApplicationDetail /></ProtectedRoute>

@@ -34,6 +34,7 @@ export function Header({ variant = "public" }) {
             <div className="w-px h-6 bg-gray-200 mx-1 shrink-0" />
             <nav className="flex items-center gap-0.5 text-base font-medium">
               <Link to="/informacion" className="px-3 py-2 rounded hover:bg-gray-100 text-[color:var(--hemsa-text)] hover:text-[color:var(--hemsa-green-hover)] whitespace-nowrap" data-testid="nav-info">Información</Link>
+           <Link to="/calculadora" className="px-3 py-2 rounded hover:bg-gray-100 text-[color:var(--hemsa-text)] hover:text-[color:var(--hemsa-green-hover)] whitespace-nowrap" data-testid="nav-calculadora">Calculadora</Link>
               <Link to="/normativa"   className="px-3 py-2 rounded hover:bg-gray-100 text-[color:var(--hemsa-text)] hover:text-[color:var(--hemsa-green-hover)] whitespace-nowrap" data-testid="nav-normativa">Normativa</Link>
               <Link to="/contacto"   className="px-3 py-2 rounded hover:bg-gray-100 text-[color:var(--hemsa-text)] hover:text-[color:var(--hemsa-green-hover)] whitespace-nowrap" data-testid="nav-contacto">Contacto</Link>
             </nav>
@@ -104,6 +105,7 @@ export function Header({ variant = "public" }) {
               <Link to="/admin/ocr"         className="px-3 py-2 rounded hover:bg-gray-100 text-[color:var(--hemsa-text)]" data-testid="nav-admin-ocr">Alta por OCR</Link>
               <Link to="/admin/baremo"      className="px-3 py-2 rounded hover:bg-gray-100 text-[color:var(--hemsa-text)]" data-testid="nav-admin-baremo">Baremo</Link>
               <Link to="/admin/usuarios"    className="px-3 py-2 rounded hover:bg-gray-100 text-[color:var(--hemsa-text)]" data-testid="nav-admin-usuarios">Usuarios</Link>
+              <Link to="/admin/calculadora" className="px-3 py-2 rounded hover:bg-gray-100 text-[color:var(--hemsa-text)]" data-testid="nav-admin-calculadora">Calculadora</Link>
             </>
           )}
         </nav>

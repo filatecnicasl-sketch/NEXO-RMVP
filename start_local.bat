@@ -1,44 +1,50 @@
 @echo off
 REM ====================================================================
-REM  Hemsa · Registro de Vivienda Protegida — Arranque local (Windows)
-REM ====================================================================
-REM  Requisitos: Python 3.11+, Node 20+, Yarn, MongoDB corriendo en :27017
-REM  Ejecucion: doble-click sobre este fichero, o desde cmd: start_local.bat
+REM  Hemsa - Registro de Vivienda Protegida - Arranque local (Windows)
+REM  Puertos: backend 8010 - frontend 3002
+REM  (3000 y 8001 los usa otro programa de este equipo)
 REM ====================================================================
 
 if not exist "backend\.env" (
-    echo [ERROR] No existe backend\.env. Crealo siguiendo SETUP_LOCAL.md
+    echo [ERROR] No existe backend\.env
     pause
     exit /b 1
 )
 if not exist "frontend\.env" (
-    echo [ERROR] No existe frontend\.env con REACT_APP_BACKEND_URL=http://localhost:8001
+    echo [ERROR] No existe frontend\.env
     pause
     exit /b 1
 )
 
-echo Instalando dependencias backend...
-cd backend
-pip install -q -r requirements_local.txt
-cd ..
+REM --- Comprobar que MongoDB esta corriendo ---
+tasklist /FI "IMAGENAME eq mongod.exe" 2>nul | find /I "mongod.exe" >nul
+if errorlevel 1 (
+    echo [AVISO] MongoDB no esta corriendo. Intentando arrancarlo...
+    net start MongoDB >nul 2>&1
+    tasklist /FI "IMAGENAME eq mongod.exe" 2>nul | find /I "mongod.exe" >nul
+    if errorlevel 1 (
+        echo [ERROR] MongoDB no ha podido arrancar. El login NO funcionara.
+        echo         Abre Servicios de Windows y arranca MongoDB manualmente.
+    ) else (
+        echo MongoDB arrancado correctamente.
+    )
+) else (
+    echo MongoDB ya esta corriendo.
+)
 
-echo Instalando dependencias frontend...
-cd frontend
-call yarn install --silent
-cd ..
-
-echo Arrancando backend en :8001...
+echo Arrancando backend en :8010...
 start "Hemsa Backend" cmd /k "cd backend && uvicorn server:app --reload --host 0.0.0.0 --port 8010"
 
-echo Arrancando frontend en :3000...
-start "Hemsa Frontend" cmd /k "cd frontend && yarn start"
+echo Arrancando frontend en :3002...
+start "Hemsa Frontend" cmd /k "cd frontend && npm start"
 
 echo.
 echo ====================================================================
 echo  Hemsa corriendo en local
-echo    Frontend: http://localhost:3000
-echo    Backend:  http://localhost:8001
-echo  Cierra las dos ventanas de cmd para parar todo
+echo    Frontend: http://localhost:3002
+echo    Backend:  http://localhost:8010
+echo  Las ventanas se llaman "Hemsa Backend" y "Hemsa Frontend".
+echo  Cierralas para parar el programa.
 echo ====================================================================
 echo.
 pause
