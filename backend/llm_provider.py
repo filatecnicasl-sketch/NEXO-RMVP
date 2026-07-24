@@ -1,34 +1,40 @@
 """Extracción OCR de PDF con proveedores LLM directos (sin emergentintegrations).
 
 Orden de intento (según las claves configuradas en .env):
-  1. GEMINI_API_KEY     → Google Gemini (admite PDF directamente, también escaneado)
-  2. ANTHROPIC_API_KEY  → Claude (admite PDF en base64)
+  1. GEMINI_API_KEY     → Google Gemini
+  2. ANTHROPIC_API_KEY  → Claude
   3. LLM_API_KEY        → cualquier API compatible con OpenAI (OpenAI, Moonshot/Kimi...)
-                          convirtiendo las páginas del PDF a imágenes (PyMuPDF)
+
+Estrategia: en lugar de enviar el PDF en bruto, cada página se renderiza a
+imagen JPEG con PyMuPDF y se envían las imágenes. Motivo: algunos PDFs de
+escáner (p. ej. Canon iR-ADV) llevan la página partida en decenas de
+fragmentos superpuestos y los lectores internos de PDF de los LLM no los
+procesan bien; PyMuPDF los renderiza siempre correctamente y las imágenes
+son la entrada más fiable para todos los proveedores.
 
 Todos devuelven (datos_dict, nombre_proveedor) o lanzan excepción.
-Incluye reintento automático ante errores transitorios (503/429/saturación).
+Los errores transitorios (503/429/timeouts) se reintentan automáticamente.
 """
 import os
 import re
 import json
 import base64
 import asyncio
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, List
 
 import httpx
 
 USER_INSTRUCTION = (
-    "Extrae los datos del PDF y devuélvelos en JSON estricto siguiendo "
-    "el esquema especificado."
+    "Extrae los datos del formulario que ves en las imágenes y devuélvelos "
+    "en JSON estricto siguiendo el esquema especificado."
 )
 
-# Reintentos ante saturación puntual del proveedor (503 "high demand", 429...)
 INTENTOS_MAX = 3
 ESPERA_BASE_SEG = 6
 
 
 def _es_transitorio(err: Exception) -> bool:
+    """Errores de saturación/red que merecen reintento automático."""
     msg = str(err).lower()
     return any(p in msg for p in (
         '503', '429', 'unavailable', 'overload', 'high demand',
@@ -47,6 +53,19 @@ def _parse_json(text: str) -> Dict[str, Any]:
     return json.loads(text)
 
 
+def _pdf_a_imagenes(pdf_path: str, escala: float = 2.0, calidad: int = 85) -> List[bytes]:
+    """Renderiza cada página del PDF a JPEG con PyMuPDF (soporta cualquier
+    PDF, incluidos escaneados con estructura fragmentada)."""
+    import fitz  # PyMuPDF
+    doc = fitz.open(pdf_path)
+    imagenes = []
+    for page in doc:
+        pix = page.get_pixmap(matrix=fitz.Matrix(escala, escala))
+        imagenes.append(pix.tobytes('jpg', jpg_quality=calidad))
+    doc.close()
+    return imagenes
+
+
 # ─── 1. Google Gemini ────────────────────────────────────────────────
 async def _extract_gemini(pdf_path: str, system_prompt: str) -> Tuple[Dict[str, Any], str]:
     from google import genai
@@ -54,29 +73,34 @@ async def _extract_gemini(pdf_path: str, system_prompt: str) -> Tuple[Dict[str, 
 
     model = os.environ.get('GEMINI_MODEL', 'gemini-3-flash-preview')
     client = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
-    with open(pdf_path, 'rb') as f:
-        pdf_bytes = f.read()
+    imagenes = _pdf_a_imagenes(pdf_path)
+    parts = [
+        types.Part.from_bytes(data=img, mime_type='image/jpeg')
+        for img in imagenes
+    ]
+    parts.append(types.Part.from_text(text=USER_INSTRUCTION))
     resp = await client.aio.models.generate_content(
         model=model,
-        contents=[
-            types.Content(parts=[
-                types.Part.from_bytes(data=pdf_bytes, mime_type='application/pdf'),
-                types.Part.from_text(text=USER_INSTRUCTION),
-            ])
-        ],
+        contents=[types.Content(parts=parts)],
         config=types.GenerateContentConfig(
             system_instruction=system_prompt,
             temperature=0,
         ),
     )
-    return _parse_json(resp.text), f"gemini-directo ({model})"
+    return _parse_json(resp.text), f"gemini-imagenes ({model})"
 
 
 # ─── 2. Anthropic Claude ─────────────────────────────────────────────
 async def _extract_anthropic(pdf_path: str, system_prompt: str) -> Tuple[Dict[str, Any], str]:
     model = os.environ.get('ANTHROPIC_MODEL', 'claude-sonnet-4-5')
-    with open(pdf_path, 'rb') as f:
-        pdf_b64 = base64.b64encode(f.read()).decode()
+    imagenes = _pdf_a_imagenes(pdf_path)
+    contenido = [
+        {'type': 'image', 'source': {
+            'type': 'base64', 'media_type': 'image/jpeg',
+            'data': base64.b64encode(img).decode()}}
+        for img in imagenes
+    ]
+    contenido.append({'type': 'text', 'text': USER_INSTRUCTION})
     async with httpx.AsyncClient(timeout=180) as client:
         resp = await client.post(
             'https://api.anthropic.com/v1/messages',
@@ -89,30 +113,16 @@ async def _extract_anthropic(pdf_path: str, system_prompt: str) -> Tuple[Dict[st
                 'model': model,
                 'max_tokens': 4096,
                 'system': system_prompt,
-                'messages': [{'role': 'user', 'content': [
-                    {'type': 'document', 'source': {
-                        'type': 'base64', 'media_type': 'application/pdf', 'data': pdf_b64}},
-                    {'type': 'text', 'text': USER_INSTRUCTION},
-                ]}],
+                'messages': [{'role': 'user', 'content': contenido}],
             },
         )
         resp.raise_for_status()
         body = resp.json()
     text = ''.join(p.get('text', '') for p in body.get('content', []))
-    return _parse_json(text), f"claude-directo ({model})"
+    return _parse_json(text), f"claude-imagenes ({model})"
 
 
 # ─── 3. API compatible con OpenAI (OpenAI, Moonshot/Kimi, etc.) ──────
-def _pdf_a_imagenes_b64(pdf_path: str, escala: float = 2.5) -> list:
-    import fitz  # PyMuPDF
-    doc = fitz.open(pdf_path)
-    imagenes = []
-    for page in doc:
-        pix = page.get_pixmap(matrix=fitz.Matrix(escala, escala))
-        imagenes.append(base64.b64encode(pix.tobytes('png')).decode())
-    return imagenes
-
-
 async def _extract_openai_compatible(pdf_path: str, system_prompt: str) -> Tuple[Dict[str, Any], str]:
     from openai import AsyncOpenAI
 
@@ -121,11 +131,12 @@ async def _extract_openai_compatible(pdf_path: str, system_prompt: str) -> Tuple
         api_key=os.environ['LLM_API_KEY'],
         base_url=os.environ.get('LLM_BASE_URL') or None,
     )
-    imagenes = _pdf_a_imagenes_b64(pdf_path)
+    imagenes = _pdf_a_imagenes(pdf_path)
     contenido = [{'type': 'text', 'text': USER_INSTRUCTION}]
     contenido += [
-        {'type': 'image_url', 'image_url': {'url': f'data:image/png;base64,{b64}'}}
-        for b64 in imagenes
+        {'type': 'image_url', 'image_url': {
+            'url': f'data:image/jpeg;base64,{base64.b64encode(img).decode()}'}}
+        for img in imagenes
     ]
     resp = await client.chat.completions.create(
         model=model,
@@ -140,8 +151,8 @@ async def _extract_openai_compatible(pdf_path: str, system_prompt: str) -> Tuple
 
 # ─── Punto de entrada ────────────────────────────────────────────────
 async def extract_pdf_data(pdf_path: str, system_prompt: str) -> Tuple[Dict[str, Any], str]:
-    """Prueba los proveedores configurados en orden, con reintento automático
-    ante errores transitorios (503/429/saturación). Lanza la última excepción si todos fallan."""
+    """Prueba los proveedores configurados en orden, con reintentos
+    automáticos ante errores transitorios. Lanza la última excepción si todos fallan."""
     errores = []
     cadena = []
     if os.environ.get('GEMINI_API_KEY'):
@@ -163,9 +174,8 @@ async def extract_pdf_data(pdf_path: str, system_prompt: str) -> Tuple[Dict[str,
                 return await fn(pdf_path, system_prompt)
             except Exception as e:
                 if _es_transitorio(e) and intento < INTENTOS_MAX:
-                    # Saturación puntual: esperamos y reintentamos en silencio
                     await asyncio.sleep(ESPERA_BASE_SEG * intento)
                     continue
                 errores.append(f'{nombre}: {str(e)[:150]}')
-                break  # error definitivo → siguiente proveedor
+                break
     raise RuntimeError('Todos los proveedores OCR fallaron → ' + ' | '.join(errores))
