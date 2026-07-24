@@ -21,6 +21,24 @@ from email_service import notify_password_reset
 router = APIRouter(tags=["auth"])
 
 
+# ─── Protección anti fuerza bruta (en memoria; suficiente para pruebas) ───
+from collections import defaultdict
+import time as _time
+
+_intentos_login = defaultdict(list)
+MAX_INTENTOS, VENTANA_SEG = 5, 300  # 5 intentos por IP+email cada 5 minutos
+
+
+def _rate_limit(request: Request, clave: str):
+    ahora = _time.time()
+    ip = request.client.host if request.client else '?'
+    k = f"{ip}:{(clave or '').lower()}"
+    _intentos_login[k] = [t for t in _intentos_login[k] if ahora - t < VENTANA_SEG]
+    if len(_intentos_login[k]) >= MAX_INTENTOS:
+        raise HTTPException(status_code=429, detail="Demasiados intentos. Espera 5 minutos.")
+    _intentos_login[k].append(ahora)
+
+
 @router.get("/")
 async def root():
     return {"app": "Hemsa Registro Vivienda Protegida", "version": "1.0"}
@@ -60,7 +78,8 @@ async def citizen_register(payload: CitizenRegister):
 
 
 @router.post("/auth/citizen/login")
-async def citizen_login(payload: CitizenLogin):
+async def citizen_login(payload: CitizenLogin, request: Request):
+    _rate_limit(request, payload.email)
     user = await db.users.find_one({'email': payload.email}, {'_id': 0})
     if not user or user.get('role') != 'citizen' or not verify_password(payload.password, user.get('password_hash', '')):
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
@@ -69,7 +88,8 @@ async def citizen_login(payload: CitizenLogin):
 
 
 @router.post("/auth/admin/login")
-async def admin_login(payload: AdminLogin):
+async def admin_login(payload: AdminLogin, request: Request):
+    _rate_limit(request, payload.email)
     user = await db.users.find_one({'email': payload.email}, {'_id': 0})
     if not user or user.get('role') != 'admin' or not verify_password(payload.password, user.get('password_hash', '')):
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
@@ -81,6 +101,10 @@ async def admin_login(payload: AdminLogin):
 
 @router.post("/auth/google/session")
 async def google_session(payload: GoogleSession, response: Response):
+    # El flujo de Google depende del backend demo de Emergent; desactivado por defecto.
+    # Para habilitarlo con OAuth propio: GOOGLE_OAUTH_ENABLED=true en .env
+    if os.environ.get('GOOGLE_OAUTH_ENABLED', 'false').lower() != 'true':
+        raise HTTPException(status_code=503, detail="Acceso con Google no disponible en esta instalación. Usa email y contraseña.")
     """Exchange Emergent session_id (from auth.emergentagent.com redirect) for an internal session."""
     async with httpx.AsyncClient(timeout=20) as h:
         r = await h.get(
