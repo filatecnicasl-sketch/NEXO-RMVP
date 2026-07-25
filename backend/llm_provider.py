@@ -53,13 +53,18 @@ def _parse_json(text: str) -> Dict[str, Any]:
     return json.loads(text)
 
 
-def _pdf_a_imagenes(pdf_path: str, escala: float = 2.0, calidad: int = 85) -> List[bytes]:
-    """Renderiza cada página del PDF a JPEG con PyMuPDF (soporta cualquier
-    PDF, incluidos escaneados con estructura fragmentada)."""
+def _pdf_a_imagenes(pdf_path: str, escala: float = 2.0, calidad: int = 85, max_paginas: int = 1) -> List[bytes]:
+    """Renderiza páginas del PDF a JPEG con PyMuPDF (soporta cualquier
+    PDF, incluidos escaneados con estructura fragmentada).
+    Por defecto solo la página 1: todos los datos del formulario están ahí;
+    la página 2 es texto legal y firmas. Procesar solo 1 página reduce
+    casi a la mitad el tiempo de respuesta del OCR."""
     import fitz  # PyMuPDF
     doc = fitz.open(pdf_path)
     imagenes = []
     for page in doc:
+        if len(imagenes) >= max_paginas:
+            break
         pix = page.get_pixmap(matrix=fitz.Matrix(escala, escala))
         imagenes.append(pix.tobytes('jpg', jpg_quality=calidad))
     doc.close()
