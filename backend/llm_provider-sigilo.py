@@ -92,7 +92,7 @@ async def _extract_gemini(pdf_path: str, system_prompt: str) -> Tuple[Dict[str, 
             temperature=0,
         ),
     )
-    return _parse_json(resp.text), "IA NEXOPRO · motor principal"
+    return _parse_json(resp.text), f"gemini-imagenes ({model})"
 
 
 # ─── 2. Anthropic Claude ─────────────────────────────────────────────
@@ -124,7 +124,7 @@ async def _extract_anthropic(pdf_path: str, system_prompt: str) -> Tuple[Dict[st
         resp.raise_for_status()
         body = resp.json()
     text = ''.join(p.get('text', '') for p in body.get('content', []))
-    return _parse_json(text), "IA NEXOPRO · motor de respaldo"
+    return _parse_json(text), f"claude-imagenes ({model})"
 
 
 # ─── 3. API compatible con OpenAI (OpenAI, Moonshot/Kimi, etc.) ──────
@@ -151,7 +151,7 @@ async def _extract_openai_compatible(pdf_path: str, system_prompt: str) -> Tuple
             {'role': 'user', 'content': contenido},
         ],
     )
-    return _parse_json(resp.choices[0].message.content), "IA NEXOPRO · motor alternativo"
+    return _parse_json(resp.choices[0].message.content), f"openai-compatible ({model})"
 
 
 # ─── Punto de entrada ────────────────────────────────────────────────
@@ -169,7 +169,8 @@ async def extract_pdf_data(pdf_path: str, system_prompt: str) -> Tuple[Dict[str,
 
     if not cadena:
         raise RuntimeError(
-            'OCR no configurado: falta la clave del motor de IA en la configuración del servidor.'
+            'OCR no configurado: define GEMINI_API_KEY, ANTHROPIC_API_KEY o '
+            'LLM_API_KEY (+LLM_BASE_URL/LLM_MODEL) en backend/.env'
         )
 
     for nombre, fn in cadena:

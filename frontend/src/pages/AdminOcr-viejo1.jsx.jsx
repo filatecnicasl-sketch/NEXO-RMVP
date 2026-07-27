@@ -94,16 +94,13 @@ export default function AdminOcr() {
   };
 
   const onConfirmRegister = async () => {
-    if (!preview) return toast.error("Primero procese el PDF con IA");
+    if (!file) return toast.error("Falta el PDF");
     setCreating(true);
     try {
-      // Alta rápida: reutiliza los datos ya extraídos (sin segunda llamada a la IA)
-      const r = await api.post("/admin/ocr/register-data", { data: preview, provider }, { timeout: 60000 });
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await api.post("/admin/ocr/register", fd, { headers: { "Content-Type": "multipart/form-data" }, timeout: 180000 });
       toast.success(`Alta creada · Nº ${r.data.application.numero_registro}`);
-      // Limpiar la pantalla para el siguiente escaneo
-      setFile(null);
-      setPreview(null);
-      setProvider("");
       navigate(`/admin/solicitudes/${r.data.application.application_id}`);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "No se pudo crear el alta");
@@ -118,7 +115,7 @@ export default function AdminOcr() {
           <div className="text-xs uppercase tracking-[0.18em] text-[color:var(--hemsa-green-hover)] font-semibold">Alta automática</div>
           <h1 className="font-heading text-3xl sm:text-4xl font-bold text-[color:var(--hemsa-text)] mt-1">Subir PDF y dar de alta con IA</h1>
           <p className="mt-2 text-sm text-[color:var(--hemsa-muted)] max-w-2xl">
-            Procesa el PDF oficial de la solicitud con inteligencia artificial (motor principal con respaldo automático) y extrae todos los campos. Revíselos y confirme la creación.
+            Procesa el PDF oficial de la solicitud con Gemini 3 Pro (Claude Sonnet 4.5 como respaldo) y extrae todos los campos. Revíselos y confirme la creación.
           </p>
         </div>
 
@@ -154,7 +151,7 @@ export default function AdminOcr() {
                   <div className="text-xs uppercase tracking-wider text-[color:var(--hemsa-muted)] font-semibold">Vista previa de datos extraídos</div>
                   <div className="text-sm text-[color:var(--hemsa-text)] mt-1 flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-[color:var(--hemsa-green)]" />
-                    Procesado con: <b>{provider}</b>
+                    Modelo usado: <b>{provider}</b>
                   </div>
                 </div>
                 <Button onClick={onConfirmRegister} disabled={creating} className="hemsa-btn-primary rounded-full px-6" data-testid={ADMIN.ocrConfirmBtn}>

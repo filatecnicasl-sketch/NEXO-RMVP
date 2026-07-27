@@ -1,10 +1,9 @@
 """Asistente de ayuda web: responde dudas del Registro de Vivienda Protegida
-mediante el motor de IA, con el conocimiento del registro incluido en el prompt.
+usando Gemini, con el conocimiento del registro incluido en el prompt.
 
 Endpoint PÚBLICO (sin login) pensado para el widget de chat de la web.
 Incluye un límite sencillo por IP para evitar abusos.
 """
-import logging
 import os
 import time
 from collections import defaultdict
@@ -12,8 +11,6 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
-
-logger = logging.getLogger("hemsa")
 
 router = APIRouter(tags=["ayuda"])
 
@@ -156,5 +153,4 @@ async def ayuda_chat(payload: ChatPeticion, request: Request):
         )
         return {'respuesta': (resp.text or '').strip()}
     except Exception as e:
-        logger.warning(f"Asistente de ayuda: fallo del motor de IA: {e}")
-        raise HTTPException(status_code=502, detail="El asistente no puede responder ahora mismo. Inténtelo de nuevo en unos minutos.")
+        raise HTTPException(status_code=502, detail=f"El asistente no puede responder ahora mismo: {str(e)[:120]}")

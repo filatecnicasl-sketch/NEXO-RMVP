@@ -54,7 +54,15 @@ export default function AdminDashboard() {
             <Button onClick={() => downloadFile("/admin/export/xlsx", "solicitudes_hemsa.xlsx")} variant="outline" data-testid={ADMIN.exportXlsxBtn} className="rounded-full">
               <FileSpreadsheet className="h-4 w-4 mr-1" /> Exportar Excel
             </Button>
-          
+            <Button
+              onClick={() => downloadFile("/admin/download-source", "hemsa-codigo-fuente.zip")}
+              variant="outline"
+              className="rounded-full border-[color:var(--hemsa-green)] text-[color:var(--hemsa-green-hover)] hover:bg-[color:var(--hemsa-green-soft)]"
+              data-testid="admin-download-source-btn"
+              title="Descarga el código fuente completo del programa (ZIP). Solo Gerente."
+            >
+              <Download className="h-4 w-4 mr-1" /> Descargar código fuente (ZIP)
+            </Button>
           </div>
         </div>
 
@@ -116,7 +124,7 @@ export default function AdminDashboard() {
               <div>
                 <div className="text-xs uppercase tracking-wider text-[color:var(--hemsa-muted)] font-semibold">Alta automática</div>
                 <div className="font-heading text-xl font-bold mt-1">Subir PDF y dar de alta con IA</div>
-                <p className="text-sm text-[color:var(--hemsa-muted)] mt-1">OCR con Gemini 3 Pro + Claude Sonnet 4.5 (fallback).</p>
+                <p className="text-sm text-[color:var(--hemsa-muted)] mt-1">OCR con inteligencia artificial (motor principal y respaldo automático).</p>
               </div>
               <Button asChild variant="outline" className="rounded-full"><Link to="/admin/ocr" data-testid="quick-link-ocr"><Upload className="h-4 w-4 mr-1" /> Abrir</Link></Button>
             </div>

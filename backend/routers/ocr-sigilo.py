@@ -139,12 +139,12 @@ async def _extract_any(pdf_path: str):
     if EMERGENT_OCR_AVAILABLE and EMERGENT_LLM_KEY:
         try:
             data = await _extract_with_provider(pdf_path, "gemini", "gemini-3.1-pro-preview")
-            return data, "IA NEXOPRO · motor principal"
+            return data, "gemini-3.1-pro-preview"
         except Exception as e:
             logger.warning(f"Gemini OCR (Emergent) falló, probando Claude (Emergent): {e}")
             try:
                 data = await _extract_with_provider(pdf_path, "anthropic", "claude-sonnet-4-5-20250929")
-                return data, "IA NEXOPRO · motor de respaldo"
+                return data, "claude-sonnet-4-5"
             except Exception as e2:
                 logger.warning(f"Claude OCR (Emergent) falló, probando proveedores directos: {e2}")
     return await extract_pdf_data(pdf_path, OCR_SYSTEM_PROMPT)
@@ -166,7 +166,7 @@ async def ocr_extract(file: UploadFile = File(...), user: Dict[str, Any] = Depen
         return {'provider': provider_used, 'data': data}
     except Exception as e:
         logger.exception("OCR failed")
-        raise HTTPException(status_code=500, detail="Error al procesar el PDF con IA. Revise el archivo e inténtelo de nuevo.")
+        raise HTTPException(status_code=500, detail=f"Error al procesar el PDF con IA: {str(e)[:200]}")
     finally:
         try:
             os.unlink(tmp.name)

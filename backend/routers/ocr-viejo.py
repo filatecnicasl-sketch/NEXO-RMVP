@@ -7,7 +7,6 @@ import uuid
 from typing import Dict, Any
 
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
-from pydantic import BaseModel
 
 # emergentintegrations is internal to Emergent. When running locally without it
 # installed, the rest of the application (login, admin, applications) still works;
@@ -139,12 +138,12 @@ async def _extract_any(pdf_path: str):
     if EMERGENT_OCR_AVAILABLE and EMERGENT_LLM_KEY:
         try:
             data = await _extract_with_provider(pdf_path, "gemini", "gemini-3.1-pro-preview")
-            return data, "IA NEXOPRO · motor principal"
+            return data, "gemini-3.1-pro-preview"
         except Exception as e:
             logger.warning(f"Gemini OCR (Emergent) falló, probando Claude (Emergent): {e}")
             try:
                 data = await _extract_with_provider(pdf_path, "anthropic", "claude-sonnet-4-5-20250929")
-                return data, "IA NEXOPRO · motor de respaldo"
+                return data, "claude-sonnet-4-5"
             except Exception as e2:
                 logger.warning(f"Claude OCR (Emergent) falló, probando proveedores directos: {e2}")
     return await extract_pdf_data(pdf_path, OCR_SYSTEM_PROMPT)
@@ -166,7 +165,7 @@ async def ocr_extract(file: UploadFile = File(...), user: Dict[str, Any] = Depen
         return {'provider': provider_used, 'data': data}
     except Exception as e:
         logger.exception("OCR failed")
-        raise HTTPException(status_code=500, detail="Error al procesar el PDF con IA. Revise el archivo e inténtelo de nuevo.")
+        raise HTTPException(status_code=500, detail=f"Error al procesar el PDF con IA: {str(e)[:200]}")
     finally:
         try:
             os.unlink(tmp.name)
@@ -174,10 +173,95 @@ async def ocr_extract(file: UploadFile = File(...), user: Dict[str, Any] = Depen
             pass
 
 
-async def _crear_alta_desde_datos(data: Dict[str, Any], provider_used: str, user: Dict[str, Any]) -> Dict[str, Any]:
-    """Crea la solicitud (usuario + aplicación) a partir de los datos extraídos.
-    La usan tanto el alta clásica (reextrayendo el PDF) como el alta rápida
-    (reutilizando la vista previa ya extraída)."""
+@router.post("/admin/ocr/register")
+async def admin_ocr_register(file: UploadFile = File(...), user=Depends(require_admin)):
+    """Admin uploads PDF, extracts and creates application linked to a synthetic user (or none)."""
+    if not (file.filename or '').lower().endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Debe ser un PDF")
+    contents = await file.read()
+    tmp = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+    tmp.write(contents)
+    tmp.flush()
+    tmp.close()
+    try:
+        data, provider_used = await _extract_any(tmp.name)
+        email = (data.get('titular1') or {}).get('email') or f"sin-email-{uuid.uuid4().hex[:6]}@hemsa.local"
+        existing_user = await db.users.find_one({'email': email}, {'_id': 0})
+        if existing_user:
+            target_user_id = existing_user['user_id']
+            already = await db.applications.find_one({'user_id': target_user_id}, {'_id': 0})
+            if already:
+                raise HTTPException(status_code=400, detail=f"El ciudadano {email} ya tiene una solicitud (Nº {already.get('numero_registro')})")
+        else:
+            target_user_id = f"user_{uuid.uuid4().hex[:12]}"
+            t1 = data.get('titular1') or {}
+            await db.users.insert_one({
+                'user_id': target_user_id,
+                'email': email,
+                'name': f"{t1.get('nombre','')} {t1.get('apellido1','')}".strip() or 'Ciudadano OCR',
+                'role': 'citizen',
+                'auth_provider': 'ocr_admin',
+                'created_at': now_utc().isoformat(),
+            })
+        numero = (data.get('numero_registro_previo') or "").strip()
+        if not REGISTRY_RE.match(numero):
+            numero = await generate_registry_number()
+        app_id = f"app_{uuid.uuid4().hex[:12]}"
+        doc = {
+            'application_id': app_id,
+            'user_id': target_user_id,
+            'numero_registro': numero,
+            'status': 'pendiente',
+            'titular1': data.get('titular1') or {},
+            'titular2': data.get('titular2'),
+            'otros_miembros': data.get('otros_miembros') or [],
+            'vivienda': data.get('vivienda') or {},
+            'justificacion': data.get('justificacion') or {},
+            'declaracion': data.get('declaracion') or {},
+            'notas_internas': [{'at': now_utc().isoformat(), 'by': user['user_id'], 'by_name': user.get('name',''), 'texto': f'Alta vía OCR ({provider_used})'}],
+            'historial': [{'at': now_utc().isoformat(), 'event': 'creada_por_ocr', 'by': user['user_id'], 'provider': provider_used}],
+            'created_at': now_utc().isoformat(),
+            'updated_at': now_utc().isoformat(),
+        }
+        # Revisión automática: validación de DNI y campos críticos vacíos.
+        # El alta se crea igualmente, pero marcada para revisión humana.
+        avisos = []
+        for etiqueta, t in (('titular 1', doc['titular1']), ('titular 2', doc.get('titular2') or {})):
+            if not t:
+                continue
+            nd = (t.get('numero_documento') or '').strip()
+            if not nd:
+                avisos.append(f"documento {etiqueta} en blanco")
+            elif (t.get('tipo_documento') or 'DNI').upper() == 'DNI' and not _dni_ok(nd):
+                avisos.append(f"DNI {etiqueta} no supera validación ({nd})")
+        if avisos:
+            doc['revision_pendiente'] = True
+            doc['notas_internas'].append({
+                'at': now_utc().isoformat(), 'by': user['user_id'], 'by_name': user.get('name', ''),
+                'texto': 'REVISIÓN OCR: ' + '; '.join(avisos),
+            })
+        score_info = compute_score(doc, await get_baremo_config())
+        doc['score'] = score_info['score']
+        doc['score_breakdown'] = score_info['breakdown']
+        await db.applications.insert_one(doc)
+        doc.pop('_id', None)
+        return {'application': doc, 'provider': provider_used}
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except Exception:
+            pass
+
+# ─── Alta OCR con datos ya revisados/editados (sin releer el PDF) ───
+from fastapi import Body
+
+
+@router.post("/admin/ocr/register-data")
+async def admin_ocr_register_data(payload: Dict[str, Any] = Body(...), user=Depends(require_admin)):
+    """Crea el alta usando los datos de la vista previa (ya editados por el operario).
+    No vuelve a llamar a la IA: la creacion es instantanea."""
+    data = payload or {}
+    provider_used = 'edicion manual'
     email = (data.get('titular1') or {}).get('email') or f"sin-email-{uuid.uuid4().hex[:6]}@hemsa.local"
     existing_user = await db.users.find_one({'email': email}, {'_id': 0})
     if existing_user:
@@ -191,7 +275,7 @@ async def _crear_alta_desde_datos(data: Dict[str, Any], provider_used: str, user
         await db.users.insert_one({
             'user_id': target_user_id,
             'email': email,
-            'name': f"{t1.get('nombre','')} {t1.get('apellido1','')}".strip() or 'Ciudadano OCR',
+            'name': f"{t1.get('nombre', '')} {t1.get('apellido1', '')}".strip() or 'Ciudadano OCR',
             'role': 'citizen',
             'auth_provider': 'ocr_admin',
             'created_at': now_utc().isoformat(),
@@ -211,13 +295,11 @@ async def _crear_alta_desde_datos(data: Dict[str, Any], provider_used: str, user
         'vivienda': data.get('vivienda') or {},
         'justificacion': data.get('justificacion') or {},
         'declaracion': data.get('declaracion') or {},
-        'notas_internas': [{'at': now_utc().isoformat(), 'by': user['user_id'], 'by_name': user.get('name',''), 'texto': f'Alta vía OCR ({provider_used})'}],
+        'notas_internas': [{'at': now_utc().isoformat(), 'by': user['user_id'], 'by_name': user.get('name', ''), 'texto': 'Alta via OCR (datos revisados y confirmados manualmente)'}],
         'historial': [{'at': now_utc().isoformat(), 'event': 'creada_por_ocr', 'by': user['user_id'], 'provider': provider_used}],
         'created_at': now_utc().isoformat(),
         'updated_at': now_utc().isoformat(),
     }
-    # Revisión automática: validación de DNI y campos críticos vacíos.
-    # El alta se crea igualmente, pero marcada para revisión humana.
     avisos = []
     for etiqueta, t in (('titular 1', doc['titular1']), ('titular 2', doc.get('titular2') or {})):
         if not t:
@@ -238,40 +320,4 @@ async def _crear_alta_desde_datos(data: Dict[str, Any], provider_used: str, user
     doc['score_breakdown'] = score_info['breakdown']
     await db.applications.insert_one(doc)
     doc.pop('_id', None)
-    return doc
-
-
-@router.post("/admin/ocr/register")
-async def admin_ocr_register(file: UploadFile = File(...), user=Depends(require_admin)):
-    """Admin uploads PDF, extracts and creates application linked to a synthetic user (or none)."""
-    if not (file.filename or '').lower().endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="Debe ser un PDF")
-    contents = await file.read()
-    tmp = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
-    tmp.write(contents)
-    tmp.flush()
-    tmp.close()
-    try:
-        data, provider_used = await _extract_any(tmp.name)
-        doc = await _crear_alta_desde_datos(data, provider_used, user)
-        return {'application': doc, 'provider': provider_used}
-    finally:
-        try:
-            os.unlink(tmp.name)
-        except Exception:
-            pass
-
-
-class DatosOcrPayload(BaseModel):
-    data: Dict[str, Any]
-    provider: str = "desconocido"
-
-
-@router.post("/admin/ocr/register-data")
-async def admin_ocr_register_data(payload: DatosOcrPayload, user=Depends(require_admin)):
-    """Alta rápida: reutiliza los datos ya extraídos en la vista previa,
-    sin volver a llamar a la IA (ahorra el 50 % del tiempo de alta)."""
-    if not payload.data or not (payload.data.get('titular1') or {}):
-        raise HTTPException(status_code=400, detail="Faltan los datos extraídos")
-    doc = await _crear_alta_desde_datos(payload.data, payload.provider, user)
-    return {'application': doc, 'provider': payload.provider}
+    return {'application': doc, 'provider': provider_used}
