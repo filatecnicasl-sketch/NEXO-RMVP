@@ -17,7 +17,7 @@ from routers import auth as auth_router
 from routers import applications as applications_router
 from routers import admin as admin_router
 from routers import ocr as ocr_router
-
+from routers import ayuda as ayuda_router
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
@@ -30,7 +30,7 @@ api_router.include_router(auth_router.router)
 api_router.include_router(applications_router.router)
 api_router.include_router(admin_router.router)
 api_router.include_router(ocr_router.router)
-
+api_router.include_router(ayuda_router.router)
 
 # ---------- Admin: manual GDPR purge trigger ----------
 @api_router.post("/admin/gdpr/purge-now")

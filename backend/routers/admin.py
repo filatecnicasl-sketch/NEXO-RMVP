@@ -79,6 +79,28 @@ async def admin_list_applications(
     total = await db.applications.count_documents(query)
     cursor = db.applications.find(query, {'_id': 0}).sort('created_at', -1).skip((page - 1) * page_size).limit(page_size)
     items = await cursor.to_list(page_size)
+
+    # Marca el origen del alta: 'ocr' si el usuario se creó desde el alta OCR
+    # del administrador (auth_provider 'ocr_admin'); en otro caso, 'web'.
+    user_ids = [it.get('user_id') for it in items if it.get('user_id')]
+    origen_por_user = {}
+    if user_ids:
+        usuarios = await db.users.find(
+            {'user_id': {'$in': user_ids}},
+            {'_id': 0, 'user_id': 1, 'auth_provider': 1},
+        ).to_list(len(user_ids))
+        origen_por_user = {
+            u['user_id']: ('ocr' if u.get('auth_provider') == 'ocr_admin' else 'web')
+            for u in usuarios
+        }
+    for it in items:
+        origen = origen_por_user.get(it.get('user_id'))
+        if not origen:
+            # Respaldo: mirar el historial de la propia solicitud
+            creada_ocr = any(h.get('event') == 'creada_por_ocr' for h in (it.get('historial') or []))
+            origen = 'ocr' if creada_ocr else 'web'
+        it['origen_alta'] = origen
+
     return {'total': total, 'page': page, 'page_size': page_size, 'items': items}
 
 

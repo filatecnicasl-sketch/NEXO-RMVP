@@ -13,7 +13,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { STATUS_LABEL } from "@/constants/options";
 import { CITIZEN } from "@/constants/testIds";
-import { FileText, FilePlus2, Clock, CheckCircle2, XCircle, Loader2, Home as HomeIcon, Download, Paperclip, Award, ShieldCheck, Pencil } from "lucide-react";
+import { FileText, FilePlus2, Clock, CheckCircle2, XCircle, Loader2, Home as HomeIcon, Download, Paperclip, ShieldCheck, Pencil } from "lucide-react";
 
 function StatusPill({ status }) {
   return (
@@ -178,22 +178,8 @@ export default function CitizenDashboard() {
                 </Button>
               </div>
 
-              {application.score !== undefined && application.score !== null && (
-                <div className="mt-7 pt-6 border-t border-[color:var(--hemsa-border)]">
-                  <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-xl bg-[color:var(--hemsa-green-soft)] flex items-center justify-center text-[color:var(--hemsa-green-hover)]">
-                      <Award className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <div className="text-xs uppercase tracking-wider text-[color:var(--hemsa-muted)] font-semibold">Baremo orientativo</div>
-                      <div className="font-heading text-2xl font-bold text-[color:var(--hemsa-text)]" data-testid="citizen-score">{application.score} pts</div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-[color:var(--hemsa-muted)] mt-2 leading-relaxed">
-                    Esta puntuación es orientativa según la información declarada. La adjudicación final dependerá de la verificación documental y de los criterios oficiales de Hemsa.
-                  </p>
-                </div>
-              )}
+              {/* La puntuación del baremo es una herramienta interna de gestión:
+                  no se muestra al ciudadano, solo al panel de administración. */}
             </Card>
 
             <Card className="p-7 border-[color:var(--hemsa-border)]">

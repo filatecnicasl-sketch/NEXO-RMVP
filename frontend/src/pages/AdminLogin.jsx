@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/Header";
 import { useAuth } from "@/contexts/AuthContext";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, ArrowLeft } from "lucide-react";
 import { AUTH } from "@/constants/testIds";
 
 export default function AdminLogin() {
@@ -41,6 +41,13 @@ export default function AdminLogin() {
       <Header variant="public" />
       <main className="max-w-md mx-auto px-4 py-16">
         <Card className="p-8 border-[color:var(--hemsa-border)]">
+          <Link
+            to="/"
+            className="mb-6 inline-flex items-center gap-2 rounded-full border border-[color:var(--hemsa-border)] px-4 py-2 text-sm font-semibold text-[color:var(--hemsa-green-hover)] hover:bg-[color:var(--hemsa-green-soft)]"
+            data-testid="link-back-home"
+          >
+            <ArrowLeft className="h-4 w-4" /> Volver a la página principal
+          </Link>
           <div className="flex items-center gap-3 mb-3">
             <div className="h-10 w-10 rounded-xl bg-[color:var(--hemsa-green-soft)] flex items-center justify-center text-[color:var(--hemsa-green-hover)]">
               <ShieldCheck className="h-5 w-5" />
@@ -65,10 +72,6 @@ export default function AdminLogin() {
               {busy ? "Entrando…" : "Acceder"}
             </Button>
           </form>
-
-          <p className="mt-6 text-sm text-center text-[color:var(--hemsa-muted)]">
-            <Link to="/" className="hover:underline">Volver al inicio</Link>
-          </p>
         </Card>
 
         <div className="mt-4 text-center">

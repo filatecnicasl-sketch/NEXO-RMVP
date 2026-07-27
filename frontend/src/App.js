@@ -39,6 +39,8 @@ import AdminOcr from "@/pages/AdminOcr";
 import AdminBaremo from "@/pages/AdminBaremo";
 import AdminUsers from "@/pages/AdminUsers";
 import AdminApplicationEdit from "@/pages/AdminApplicationEdit";
+import Ayuda from "@/pages/Ayuda";
+import { AyudaChat } from "@/components/AyudaChat";
 
 function AppRouter() {
   const location = useLocation();
@@ -53,6 +55,7 @@ function AppRouter() {
       <Route path="/normativa" element={<Normativa />} />
       <Route path="/faq" element={<FAQ />} />
       <Route path="/contacto" element={<Contacto />} />
+      <Route path="/ayuda" element={<Ayuda />} />
       <Route path="/calculadora" element={<CalculadoraIprem />} />
       <Route path="/login" element={<CitizenLogin />} />
       <Route path="/registro" element={<CitizenRegister />} />
@@ -76,7 +79,6 @@ function AppRouter() {
       } />
       <Route path="/admin/solicitudes" element={
         <ProtectedRoute role="admin"><AdminApplications /></ProtectedRoute>
-
       } />
       <Route path="/admin/calculadora" element={
         <ProtectedRoute role="admin"><CalculadoraIprem variant="admin" /></ProtectedRoute>
@@ -109,6 +111,7 @@ function App() {
         <AuthProvider>
           <AppRouter />
           <Toaster richColors closeButton position="top-right" />
+          <AyudaChat />
         </AuthProvider>
       </BrowserRouter>
     </div>

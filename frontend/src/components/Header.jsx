@@ -13,6 +13,7 @@ const NAV_LINKS = {
     ["/normativa", "Normativa", "nav-normativa"],
     ["/calculadora", "Calculadora", "nav-calculadora"],
     ["/contacto", "Contacto", "nav-contacto"],
+    ["/ayuda", "Ayuda", "nav-ayuda"],
   ],
   admin: [
     ["/admin", "Resumen", "nav-admin-overview"],
@@ -21,9 +22,11 @@ const NAV_LINKS = {
     ["/admin/baremo", "Baremo", "nav-admin-baremo"],
     ["/admin/calculadora", "Calculadora", "nav-admin-calculadora"],
     ["/admin/usuarios", "Usuarios", "nav-admin-usuarios"],
+    ["/ayuda", "Ayuda", "nav-admin-ayuda"],
   ],
   citizen: [
     ["/dashboard", "Mi solicitud", "nav-dashboard"],
+    ["/ayuda", "Ayuda", "nav-ciudadano-ayuda"],
   ],
 };
 

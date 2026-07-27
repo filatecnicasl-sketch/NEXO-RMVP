@@ -109,9 +109,22 @@ export default function CalculadoraIprem({ variant = "public" }) {
     const rentaMes = (precioTotal * (params.alquilerPct / 100)) / 12;
     const rentaMesAoc = (precioTotal * (params.aocPct / 100)) / 12;
 
-    return { ing, nMiem, nGrupos, cM, cG, coefFinal, vecesIprem, ifc, limites, cuotaMax, capital, precioM2, precioVivienda, precioAnejos, precioTotal, rentaMes, rentaMesAoc };
-  }, [ingresos, miembros, grupos, grupo, regimen, m2Vivienda, m2Anejos, tin, anos, params]);
+       /* ── Veredicto automático: apto / no apto ── */
+    let veredicto;
+    if (ing <= 0) {
+      veredicto = null;
+    } else if (ifc <= 3.0) {
+      veredicto = { tono: "verde", titulo: "APTO para todos los regímenes", detalle: `Con unos ingresos corregidos de ${fmt2.format(ifc)} × IPREM cumples los tres límites: régimen especial (3), régimen general (5,5) y precio limitado (7).` };
+    } else if (ifc <= 5.5) {
+      veredicto = { tono: "verde", titulo: "APTO para régimen general y precio limitado", detalle: `Tus ingresos corregidos (${fmt2.format(ifc)} × IPREM) superan el límite de régimen especial (3), pero cumples los de régimen general (5,5) y precio limitado (7).` };
+    } else if (ifc <= 7.0) {
+      veredicto = { tono: "ambar", titulo: "APTO solo para vivienda de precio limitado", detalle: `Tus ingresos corregidos (${fmt2.format(ifc)} × IPREM) superan los límites de régimen especial (3) y general (5,5); cumples únicamente el de precio limitado (7).` };
+    } else {
+      veredicto = { tono: "rojo", titulo: "NO APTO por ingresos", detalle: `Tus ingresos corregidos (${fmt2.format(ifc)} × IPREM) superan el límite máximo (7 × IPREM). Revisa los coeficientes correctores aplicables o consulta con las oficinas de Hemsa.` };
+    }
 
+    return { ing, nMiem, nGrupos, cM, cG, coefFinal, vecesIprem, ifc, limites, cuotaMax, capital, precioM2, precioVivienda, precioAnejos, precioTotal, rentaMes, rentaMesAoc, veredicto };
+  }, [ingresos, miembros, grupos, grupo, regimen, m2Vivienda, m2Anejos, tin, anos, params]);
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header variant={variant} />
