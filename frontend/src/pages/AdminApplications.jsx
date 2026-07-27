@@ -97,16 +97,17 @@ export default function AdminApplications() {
                 <TableHead>Dorm.</TableHead>
                 <TableHead>Baremo</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead>Origen</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading && (
-                <TableRow><TableCell colSpan={9} className="text-center py-10 text-[color:var(--hemsa-muted)]">Cargando…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center py-10 text-[color:var(--hemsa-muted)]">Cargando…</TableCell></TableRow>
               )}
               {!loading && data.items.length === 0 && (
-                <TableRow><TableCell colSpan={9} className="text-center py-10 text-[color:var(--hemsa-muted)]">No hay solicitudes que coincidan.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center py-10 text-[color:var(--hemsa-muted)]">No hay solicitudes que coincidan.</TableCell></TableRow>
               )}
               {!loading && data.items.map((it) => (
                 <TableRow key={it.application_id} className="hover:bg-[color:var(--hemsa-surface)] cursor-pointer" data-testid={`row-${it.application_id}`}>
@@ -121,6 +122,13 @@ export default function AdminApplications() {
                     ) : "—"}
                   </TableCell>
                   <TableCell><span className={`status-pill status-${it.status}`}>{STATUS_LABEL[it.status] || it.status}</span></TableCell>
+                  <TableCell>
+                    {it.origen_alta === 'ocr' ? (
+                      <span className="inline-flex items-center rounded-full bg-purple-100 text-purple-700 px-2 py-0.5 text-xs font-semibold">OCR IA</span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-sky-100 text-sky-700 px-2 py-0.5 text-xs font-semibold">Web</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-xs text-[color:var(--hemsa-muted)]">{new Date(it.created_at).toLocaleDateString("es-ES")}</TableCell>
                   <TableCell><Button asChild size="sm" variant="ghost"><Link to={`/admin/solicitudes/${it.application_id}`} data-testid={`view-${it.application_id}`}>Ver</Link></Button></TableCell>
                 </TableRow>
