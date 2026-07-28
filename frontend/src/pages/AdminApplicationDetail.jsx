@@ -43,7 +43,6 @@ function HolderBlock({ t }) {
       <KV k="Fecha nac." v={t.fecha_nacimiento} />
       <KV k="Empadronado/a en" v={t.empadronado_en} />
       <KV k="Dirección" v={`${t.direccion} (${t.codigo_postal})`} />
-      <KV k="Localidad" v={t.domicilio} />
       <KV k="Email" v={t.email} />
       <KV k="Móvil" v={t.telefono_movil} />
       <KV k="Tel. fijo" v={t.telefono_fijo} />
@@ -164,7 +163,9 @@ export default function AdminApplicationDetail() {
           <div>
             <Button asChild variant="ghost" size="sm" className="mb-2"><Link to="/admin/solicitudes"><ArrowLeft className="h-4 w-4 mr-1" /> Volver al listado</Link></Button>
             <h1 className="font-heading text-3xl font-bold text-[color:var(--hemsa-text)]">{data.numero_registro}</h1>
-            <p className="text-sm text-[color:var(--hemsa-muted)]">Creada el {new Date(data.created_at).toLocaleString("es-ES")}</p>
+            <p className="text-sm text-[color:var(--hemsa-muted)]">
+              Creada el {new Date(data.created_at).toLocaleString("es-ES")}
+            </p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             <Button asChild variant="outline" className="rounded-full" data-testid="admin-edit-btn">

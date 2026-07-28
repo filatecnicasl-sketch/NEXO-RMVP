@@ -67,7 +67,6 @@ def _holder_items(t: Dict[str, Any]):
         ("Fecha de nacimiento", t.get("fecha_nacimiento", "")),
         ("Empadronado/a en", t.get("empadronado_en", "")),
         ("Dirección", f"{t.get('direccion','')} ({t.get('codigo_postal','')})".strip()),
-        ("Localidad", t.get("domicilio", "")),
         ("Email", t.get("email", "")),
         ("Teléfono móvil", t.get("telefono_movil", "")),
         ("Teléfono fijo", t.get("telefono_fijo", "")),
@@ -87,7 +86,7 @@ def generate_application_pdf(app: Dict[str, Any]) -> bytes:
         Paragraph("<b>HEMSA · San Fernando</b><br/>"
                   "<font size=8 color='#7A7A7A'>Registro Público Municipal de Demandantes de Vivienda Protegida</font>", styles["value"]),
         Paragraph(f"<para align=right><font size=8 color='#7A7A7A'>RESGUARDO OFICIAL</font><br/>"
-                  f"<b>Nº {app.get('numero_registro','—')}</b><br/>"
+                  f"<b>Nº {app.get('numero_registro') or '—'}</b><br/>"
                   f"<font size=8 color='#7A7A7A'>{STATUS_TEXT.get(app.get('status',''), app.get('status',''))}</font></para>", styles["value"]),
     ]]
     header = Table(header_data, colWidths=[110 * mm, None])
