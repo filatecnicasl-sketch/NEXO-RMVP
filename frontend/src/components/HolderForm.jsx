@@ -1,210 +1,140 @@
-"""Generador del PDF de resguardo oficial de la solicitud."""
-import io
-from datetime import datetime
-from typing import Dict, Any
+import React from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { SEXO_OPTIONS, TIPO_DOCUMENTO, TIPO_IRPF, GRUPOS_CODIGOS } from "@/constants/options";
 
-from reportlab.lib.pagesizes import A4
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import mm
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak,
-)
-from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+export function HolderForm({ data, onChange, prefix }) {
+  const set = (k, v) => onChange({ ...data, [k]: v });
 
-HEMSA_GREEN = colors.HexColor("#2ECC8B")
-HEMSA_TEXT = colors.HexColor("#3F3F46")
-HEMSA_MUTED = colors.HexColor("#7A7A7A")
-HEMSA_BORDER = colors.HexColor("#E4E4E7")
-HEMSA_SOFT = colors.HexColor("#E7F8F0")
+  const toggleGroup = (code) => {
+    const arr = Array.isArray(data.grupos_acreditacion) ? data.grupos_acreditacion : [];
+    set("grupos_acreditacion", arr.includes(code) ? arr.filter((c) => c !== code) : [...arr, code]);
+  };
 
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <Label>Nombre</Label>
+          <Input value={data.nombre} onChange={(e) => set("nombre", e.target.value)} data-testid={`${prefix}-nombre`} />
+        </div>
+        <div>
+          <Label>Primer apellido</Label>
+          <Input value={data.apellido1} onChange={(e) => set("apellido1", e.target.value)} data-testid={`${prefix}-apellido1`} />
+        </div>
+        <div>
+          <Label>Segundo apellido</Label>
+          <Input value={data.apellido2} onChange={(e) => set("apellido2", e.target.value)} data-testid={`${prefix}-apellido2`} />
+        </div>
+      </div>
 
-def _styles():
-    base = getSampleStyleSheet()
-    return {
-        "title": ParagraphStyle("hTitle", parent=base["Title"], fontName="Helvetica-Bold", fontSize=22, leading=26, textColor=HEMSA_TEXT, spaceAfter=4),
-        "subtitle": ParagraphStyle("hSub", parent=base["Normal"], fontName="Helvetica", fontSize=10, leading=14, textColor=HEMSA_MUTED, spaceAfter=10),
-        "section": ParagraphStyle("hSection", parent=base["Heading2"], fontName="Helvetica-Bold", fontSize=11, leading=14, textColor=HEMSA_GREEN, spaceBefore=12, spaceAfter=6),
-        "label": ParagraphStyle("hLabel", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=10, textColor=HEMSA_MUTED),
-        "value": ParagraphStyle("hValue", parent=base["Normal"], fontName="Helvetica", fontSize=10, leading=12, textColor=HEMSA_TEXT),
-        "body": ParagraphStyle("hBody", parent=base["Normal"], fontName="Helvetica", fontSize=9, leading=12, textColor=HEMSA_TEXT),
-        "footer": ParagraphStyle("hFooter", parent=base["Normal"], fontName="Helvetica", fontSize=8, leading=10, textColor=HEMSA_MUTED, alignment=TA_CENTER),
-    }
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <Label>Sexo</Label>
+          <Select value={data.sexo} onValueChange={(v) => set("sexo", v)}>
+            <SelectTrigger data-testid={`${prefix}-sexo`}><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+            <SelectContent>
+              {SEXO_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Tipo de documento</Label>
+          <Select value={data.tipo_documento} onValueChange={(v) => set("tipo_documento", v)}>
+            <SelectTrigger data-testid={`${prefix}-tipo-doc`}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {TIPO_DOCUMENTO.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Nº de documento</Label>
+          <Input value={data.numero_documento} onChange={(e) => set("numero_documento", e.target.value)} data-testid={`${prefix}-num-doc`} />
+        </div>
+      </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <Label>Nacionalidad</Label>
+          <Input value={data.nacionalidad} onChange={(e) => set("nacionalidad", e.target.value)} data-testid={`${prefix}-nacionalidad`} />
+        </div>
+        <div>
+          <Label>Fecha de nacimiento</Label>
+          <Input type="date" value={data.fecha_nacimiento} onChange={(e) => set("fecha_nacimiento", e.target.value)} data-testid={`${prefix}-fnac`} />
+        </div>
+        <div>
+          <Label>Empadronado/a en</Label>
+          <Input value={data.empadronado_en} onChange={(e) => set("empadronado_en", e.target.value)} data-testid={`${prefix}-empadronado`} />
+        </div>
+      </div>
 
-STATUS_TEXT = {
-    "pendiente": "Pendiente",
-    "en_revision": "En revisión",
-    "aprobada": "Aprobada",
-    "denegada": "Denegada",
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-2">
+          <Label>Dirección</Label>
+          <Input value={data.direccion} onChange={(e) => set("direccion", e.target.value)} data-testid={`${prefix}-direccion`} />
+        </div>
+        <div>
+          <Label>Código postal</Label>
+          <Input value={data.codigo_postal} onChange={(e) => set("codigo_postal", e.target.value)} data-testid={`${prefix}-cp`} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label>Teléfono fijo</Label>
+          <Input value={data.telefono_fijo} onChange={(e) => set("telefono_fijo", e.target.value)} data-testid={`${prefix}-tfijo`} />
+        </div>
+        <div>
+          <Label>Teléfono móvil</Label>
+          <Input value={data.telefono_movil} onChange={(e) => set("telefono_movil", e.target.value)} data-testid={`${prefix}-tmovil`} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-1">
+          <Label>Email</Label>
+          <Input type="email" value={data.email} onChange={(e) => set("email", e.target.value)} data-testid={`${prefix}-email`} />
+        </div>
+        <div>
+          <Label>Ingresos económicos (€)</Label>
+          <Input type="number" min="0" step="0.01" value={data.ingresos_economicos} onChange={(e) => set("ingresos_economicos", parseFloat(e.target.value) || 0)} data-testid={`${prefix}-ingresos`} />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Declaración IRPF</Label>
+            <Select value={data.tipo_declaracion_irpf} onValueChange={(v) => set("tipo_declaracion_irpf", v)}>
+              <SelectTrigger data-testid={`${prefix}-irpf`}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {TIPO_IRPF.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Año</Label>
+            <Input type="number" value={data.anio_ingresos} onChange={(e) => set("anio_ingresos", parseInt(e.target.value) || 0)} data-testid={`${prefix}-anio`} />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div className="text-xs uppercase tracking-wider text-[color:var(--hemsa-muted)] font-semibold mb-3">Grupos de acreditación (marque los que correspondan)</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+          {GRUPOS_CODIGOS.map((g) => {
+            const checked = (data.grupos_acreditacion || []).includes(g.code);
+            return (
+              <label key={g.code} className="flex items-start gap-2 p-3 rounded-lg border border-[color:var(--hemsa-border)] hover:bg-[color:var(--hemsa-surface)] cursor-pointer transition-colors" data-testid={`${prefix}-grupo-${g.code}`}>
+                <Checkbox checked={checked} onCheckedChange={() => {
+                  const arr = data.grupos_acreditacion || [];
+                  onChange({ ...data, grupos_acreditacion: checked ? arr.filter((c) => c !== g.code) : [...arr, g.code] });
+                }} />
+                <span className="text-xs leading-snug text-[color:var(--hemsa-text)]"><b>{g.code}</b> · {g.label}</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
-
-
-def _kv_table(items, styles):
-    """items: list of (label, value) string tuples; returns a 2-col Table."""
-    data = []
-    for k, v in items:
-        data.append([Paragraph(k.upper(), styles["label"]), Paragraph(str(v) if v not in (None, "") else "—", styles["value"])])
-    t = Table(data, colWidths=[55 * mm, None])
-    t.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("LINEBELOW", (0, 0), (-1, -2), 0.4, HEMSA_BORDER),
-    ]))
-    return t
-
-
-def _holder_items(t: Dict[str, Any]):
-    if not t:
-        return []
-    full = f"{t.get('nombre','')} {t.get('apellido1','')} {t.get('apellido2','')}".strip()
-    return [
-        ("Nombre completo", full),
-        ("Documento", f"{t.get('tipo_documento','')} {t.get('numero_documento','')}".strip()),
-        ("Sexo", t.get("sexo", "")),
-        ("Nacionalidad", t.get("nacionalidad", "")),
-        ("Fecha de nacimiento", t.get("fecha_nacimiento", "")),
-        ("Empadronado/a en", t.get("empadronado_en", "")),
-        ("Dirección", f"{t.get('direccion','')} ({t.get('codigo_postal','')})".strip()),
-        ("Email", t.get("email", "")),
-        ("Teléfono móvil", t.get("telefono_movil", "")),
-        ("Teléfono fijo", t.get("telefono_fijo", "")),
-        ("Ingresos económicos", f"{t.get('ingresos_economicos', 0)} € · {t.get('tipo_declaracion_irpf','')} {t.get('anio_ingresos','')}"),
-        ("Grupos acreditación", ", ".join(t.get("grupos_acreditacion") or []) or "—"),
-    ]
-
-
-def generate_application_pdf(app: Dict[str, Any]) -> bytes:
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=18*mm, rightMargin=18*mm, topMargin=18*mm, bottomMargin=18*mm)
-    styles = _styles()
-    story = []
-
-    # Header banner
-    header_data = [[
-        Paragraph("<b>HEMSA · San Fernando</b><br/>"
-                  "<font size=8 color='#7A7A7A'>Registro Público Municipal de Demandantes de Vivienda Protegida</font>", styles["value"]),
-        Paragraph(f"<para align=right><font size=8 color='#7A7A7A'>RESGUARDO OFICIAL</font><br/>"
-                  f"<b>Nº {app.get('numero_registro') or '—'}</b><br/>"
-                  f"<font size=8 color='#7A7A7A'>{STATUS_TEXT.get(app.get('status',''), app.get('status',''))}</font></para>", styles["value"]),
-    ]]
-    header = Table(header_data, colWidths=[110 * mm, None])
-    header.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), HEMSA_SOFT),
-        ("BOX", (0, 0), (-1, -1), 0.6, HEMSA_GREEN),
-        ("LEFTPADDING", (0, 0), (-1, -1), 12),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-        ("TOPPADDING", (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-    ]))
-    story.append(header)
-    story.append(Spacer(1, 8))
-
-    story.append(Paragraph("Solicitud de inscripción", styles["title"]))
-    created = app.get("created_at", "")
-    try:
-        created_fmt = datetime.fromisoformat(created).strftime("%d/%m/%Y %H:%M")
-    except Exception:
-        created_fmt = created
-    story.append(Paragraph(f"Fecha de presentación: {created_fmt}", styles["subtitle"]))
-
-    # Titular 1
-    story.append(Paragraph("TITULAR 1", styles["section"]))
-    story.append(_kv_table(_holder_items(app.get("titular1") or {}), styles))
-
-    if app.get("titular2"):
-        story.append(Paragraph("TITULAR 2", styles["section"]))
-        story.append(_kv_table(_holder_items(app.get("titular2") or {}), styles))
-
-    # Otros miembros
-    miembros = app.get("otros_miembros") or []
-    story.append(Paragraph(f"OTROS MIEMBROS DE LA UNIDAD FAMILIAR ({len(miembros)})", styles["section"]))
-    if not miembros:
-        story.append(Paragraph("Sin miembros adicionales declarados.", styles["body"]))
-    else:
-        rows = [[
-            Paragraph("<b>Nombre</b>", styles["label"]),
-            Paragraph("<b>NIF</b>", styles["label"]),
-            Paragraph("<b>F.Nac.</b>", styles["label"]),
-            Paragraph("<b>Ingresos</b>", styles["label"]),
-            Paragraph("<b>IRPF</b>", styles["label"]),
-        ]]
-        for m in miembros:
-            rows.append([
-                Paragraph(m.get("nombre_completo", "—"), styles["body"]),
-                Paragraph(m.get("nif", "—"), styles["body"]),
-                Paragraph(m.get("fecha_nacimiento", "—"), styles["body"]),
-                Paragraph(f"{m.get('ingresos_economicos', 0)} €", styles["body"]),
-                Paragraph(f"{m.get('tipo_declaracion','')} {m.get('anio_ingresos','')}", styles["body"]),
-            ])
-        t = Table(rows, colWidths=[58*mm, 28*mm, 24*mm, 26*mm, 32*mm])
-        t.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), HEMSA_SOFT),
-            ("GRID", (0, 0), (-1, -1), 0.3, HEMSA_BORDER),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING", (0, 0), (-1, -1), 5),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ]))
-        story.append(t)
-
-    # Vivienda
-    v = app.get("vivienda") or {}
-    story.append(Paragraph("VIVIENDA A LA QUE SE OPTA", styles["section"]))
-    story.append(_kv_table([
-        ("Régimen", ", ".join(v.get("regimen") or [])),
-        ("Dormitorios", ", ".join(v.get("dormitorios") or [])),
-        ("Algún miembro silla de ruedas", "Sí" if v.get("silla_ruedas") else "No"),
-        ("Movilidad reducida", "Sí" if v.get("movilidad_reducida") else "No"),
-        ("Cooperativa", "Sí" if v.get("cooperativa") else "No"),
-        ("Vivienda adaptada", "Sí" if v.get("necesidad_vivienda_adaptada") else "No"),
-        ("Precariedad habitacional", "Sí" if v.get("precariedad") else "No"),
-        ("Vivienda inadecuada por superficie", "Sí" if v.get("vivienda_inadecuada_superficie") else "No"),
-        ("Renta elevada respecto a ingresos", "Sí" if v.get("renta_elevada") else "No"),
-        ("Alojamiento con otros familiares", "Sí" if v.get("alojamiento_otros_familiares") else "No"),
-        ("Formación nueva unidad familiar", "Sí" if v.get("nueva_unidad_familiar") else "No"),
-        ("Otros", v.get("otros_detalle") if v.get("otros") else "No"),
-    ], styles))
-
-    # Justificación
-    just = (app.get("justificacion") or {}).get("casillas") or []
-    story.append(Paragraph("JUSTIFICACIÓN DE LA NECESIDAD", styles["section"]))
-    story.append(Paragraph(", ".join(just) if just else "—", styles["body"]))
-
-    # Declaración
-    dec = app.get("declaracion") or {}
-    story.append(Paragraph("DECLARACIÓN RESPONSABLE", styles["section"]))
-    story.append(_kv_table([
-        ("Motivo (si tiene propiedad)", dec.get("motivo_propiedad", "")),
-        ("Otras inscripciones", dec.get("inscripcion_otros_municipios", "")),
-        ("Preferencia en", dec.get("preferencia_en", "")),
-        ("Notificación email", "Autorizada" if dec.get("autoriza_email") else "No autorizada"),
-        ("Notificación SMS", "Autorizada" if dec.get("autoriza_sms") else "No autorizada"),
-    ], styles))
-
-    # Score
-    if app.get("score") is not None:
-        story.append(Paragraph("BAREMO (orientativo)", styles["section"]))
-        story.append(Paragraph(f"<b>Puntuación calculada:</b> {app.get('score')} puntos.<br/>"
-                               f"<font color='#7A7A7A' size=8>Cálculo orientativo sujeto a verificación documental por parte de Hemsa.</font>", styles["body"]))
-
-    # Footer / legal
-    story.append(Spacer(1, 12))
-    story.append(Paragraph(
-        "Este documento es un resguardo de la presentación electrónica de la solicitud de inscripción en el Registro "
-        "Público Municipal de Demandantes de Vivienda Protegida del Excmo. Ayuntamiento de San Fernando, gestionado por "
-        "Hemsa (Servicios Públicos Municipales). El estado actual del expediente puede consultarse en el portal del "
-        "ciudadano. Los datos personales han sido tratados conforme al RGPD (UE) 2016/679 y la LOPDGDD 3/2018.",
-        styles["body"],
-    ))
-    story.append(Spacer(1, 12))
-    story.append(Paragraph(
-        f"Generado el {datetime.now().strftime('%d/%m/%Y %H:%M')} · Hemsa · San Fernando",
-        styles["footer"],
-    ))
-
-    doc.build(story)
-    buf.seek(0)
-    return buf.getvalue()
