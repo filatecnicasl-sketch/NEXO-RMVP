@@ -42,7 +42,7 @@ function HolderBlock({ t }) {
       <KV k="Nacionalidad" v={t.nacionalidad} />
       <KV k="Fecha nac." v={t.fecha_nacimiento} />
       <KV k="Empadronado/a en" v={t.empadronado_en} />
-      <KV k="Dirección" v={`${t.direccion} (${t.codigo_postal})`} />
+      <KV k="Dirección" v={`${t.direccion || t.domicilio || '—'} (${t.codigo_postal || '—'})`} />
       <KV k="Email" v={t.email} />
       <KV k="Móvil" v={t.telefono_movil} />
       <KV k="Tel. fijo" v={t.telefono_fijo} />

@@ -55,7 +55,6 @@ Esquema JSON (responde SOLO con este JSON, sin texto extra, sin markdown):
     "fecha_nacimiento": "",
     "empadronado_en": "",
     "direccion": "",
-    "domicilio": "",
     "telefono_fijo": "",
     "telefono_movil": "",
     "codigo_postal": "",

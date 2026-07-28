@@ -66,7 +66,7 @@ def _holder_items(t: Dict[str, Any]):
         ("Nacionalidad", t.get("nacionalidad", "")),
         ("Fecha de nacimiento", t.get("fecha_nacimiento", "")),
         ("Empadronado/a en", t.get("empadronado_en", "")),
-        ("Dirección", f"{t.get('direccion','')} ({t.get('codigo_postal','')})".strip()),
+        ("Dirección", f"{t.get('direccion') or t.get('domicilio','') or '—'} ({t.get('codigo_postal','')})".strip()),
         ("Email", t.get("email", "")),
         ("Teléfono móvil", t.get("telefono_movil", "")),
         ("Teléfono fijo", t.get("telefono_fijo", "")),
